@@ -11,14 +11,13 @@ import (
 )
 
 func startServer(addr chan string) {
-	// pick a free port
+	// 选择一个空闲的端口
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatal("network error:", err)
 	}
 	log.Println("start rpc server on", l.Addr())
 	addr <- l.Addr().String()
-	// server 先开电话
 	qRPC.Accept(l)
 }
 
@@ -33,6 +32,7 @@ func main() {
 	time.Sleep(time.Second)
 
 	// client 与 server 握手
+	// | Option | Header1 | Body1 | Header2 | Body2 | ...
 	_ = json.NewEncoder(conn).Encode(qRPC.DefaultOption)
 	msg := qrpc.NewGobPhone(conn)
 
@@ -43,8 +43,8 @@ func main() {
 		}
 		_ = msg.Write(h, fmt.Sprintf("qrpc req %d", h.Seq))
 		_ = msg.ReadHeader(h)
-		var reply string
-		_ = msg.ReadBody(&reply)
-		log.Println("reply:", reply)
+		var resp string
+		_ = msg.ReadBody(&resp)
+		log.Println("resp:", resp)
 	}
 }

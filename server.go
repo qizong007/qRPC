@@ -83,7 +83,7 @@ func (server *Server) serveMessage(msg qrpc.Phone) {
 	wg := new(sync.WaitGroup)
 	for {
 		// 1. 读取请求
-		req, err := server.readRequest(msg)
+		req, err := server.parseRequest(msg)
 		if err != nil {
 			if req == nil {
 				break // 无法解决，直接关闭连接
@@ -107,7 +107,7 @@ type request struct {
 }
 
 // 解析请求头
-func (server *Server) readRequestHeader(msg qrpc.Phone) (*qrpc.Header, error) {
+func (server *Server) parseRequestHeader(msg qrpc.Phone) (*qrpc.Header, error) {
 	var h qrpc.Header
 	if err := msg.ReadHeader(&h); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -118,9 +118,9 @@ func (server *Server) readRequestHeader(msg qrpc.Phone) (*qrpc.Header, error) {
 	return &h, nil
 }
 
-// 解析请求
-func (server *Server) readRequest(msg qrpc.Phone) (*request, error) {
-	h, err := server.readRequestHeader(msg)
+// 1. 解析请求数据
+func (server *Server) parseRequest(msg qrpc.Phone) (*request, error) {
+	h, err := server.parseRequestHeader(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -133,20 +133,20 @@ func (server *Server) readRequest(msg qrpc.Phone) (*request, error) {
 	return req, nil
 }
 
-// 发送响应
+// 2. 逻辑处理请求
+func (server *Server) handleRequest(msg qrpc.Phone, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
+	// TODO: 需要调用已注册的rpc方法获取 replyv
+	defer wg.Done()
+	log.Println("req: ", req.h, req.argv.Elem())
+	req.replyv = reflect.ValueOf(fmt.Sprintf("qrpc resp %d", req.h.Seq))
+	server.sendResponse(msg, req.h, req.replyv.Interface(), sending)
+}
+
+// 3. 返回响应数据
 func (server *Server) sendResponse(msg qrpc.Phone, h *qrpc.Header, body interface{}, sending *sync.Mutex) {
 	sending.Lock()
 	defer sending.Unlock()
 	if err := msg.Write(h, body); err != nil {
 		log.Println("rpc server: write response error:", err)
 	}
-}
-
-// 处理请求
-func (server *Server) handleRequest(msg qrpc.Phone, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
-	// TODO: 需要调用已注册的rpc方法获取 replyv
-	defer wg.Done()
-	log.Println(req.h, req.argv.Elem())
-	req.replyv = reflect.ValueOf(fmt.Sprintf("qrpc resp %d", req.h.Seq))
-	server.sendResponse(msg, req.h, req.replyv.Interface(), sending)
 }
