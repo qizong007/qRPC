@@ -54,6 +54,7 @@ func Accept(listener net.Listener) {
 
 func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 	defer func() { _ = conn.Close() }()
+	// 解析option
 	var opt Option
 	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
 		log.Println("rpc server: options error: ", err)
@@ -68,6 +69,7 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 		log.Printf("rpc server: invalid msg type %s", opt.MsgType)
 		return
 	}
+	// 处理消息
 	server.serveMessage(f(conn))
 }
 
@@ -144,6 +146,8 @@ func (server *Server) handleRequest(msg qrpc.Phone, req *request, sending *sync.
 
 // 3. 返回响应数据
 func (server *Server) sendResponse(msg qrpc.Phone, h *qrpc.Header, body interface{}, sending *sync.Mutex) {
+	// 加锁目的
+	// 防止一个goroutine在写buffer的时候，另一个在尝试flush
 	sending.Lock()
 	defer sending.Unlock()
 	if err := msg.Write(h, body); err != nil {
