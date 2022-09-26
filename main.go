@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"qRPC"
 	"qRPC/qrpc"
 	"time"
 )
@@ -18,7 +17,7 @@ func startServer(addr chan string) {
 	}
 	log.Println("start rpc server on", l.Addr())
 	addr <- l.Addr().String()
-	qRPC.Accept(l)
+	qrpc.Accept(l)
 }
 
 func main() {
@@ -33,7 +32,7 @@ func main() {
 
 	// client 与 server 握手
 	// | Option | Header1 | Body1 | Header2 | Body2 | ...
-	_ = json.NewEncoder(conn).Encode(qRPC.DefaultOption)
+	_ = json.NewEncoder(conn).Encode(qrpc.DefaultOption)
 	msg := qrpc.NewGobPhone(conn)
 
 	for i := 0; i < 5; i++ {

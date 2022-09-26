@@ -1,4 +1,4 @@
-package qRPC
+package qrpc
 
 import (
 	"encoding/json"
@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"qRPC/qrpc"
 	"reflect"
 	"sync"
 )
@@ -21,12 +20,12 @@ const MagicNumber = 0xbaebae
 
 type Option struct {
 	MagicNumber int
-	MsgType     qrpc.Type
+	MsgType     Type
 }
 
 var DefaultOption = &Option{
 	MagicNumber: MagicNumber,
-	MsgType:     qrpc.GobType,
+	MsgType:     GobType,
 }
 
 type Server struct{}
@@ -64,7 +63,7 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 		log.Printf("rpc server: invalid magic number %x", opt.MagicNumber)
 		return
 	}
-	f := qrpc.NewPhoneFuncMap[opt.MsgType]
+	f := NewPhoneFuncMap[opt.MsgType]
 	if f == nil {
 		log.Printf("rpc server: invalid msg type %s", opt.MsgType)
 		return
@@ -76,7 +75,7 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 // invalidRequest is a placeholder for response argv when error occurs
 var invalidRequest = struct{}{}
 
-func (server *Server) serveMessage(msg qrpc.Phone) {
+func (server *Server) serveMessage(msg Phone) {
 	// 处理请求是并发的，但是回复请求的报文必须是逐个发送的
 	// 并发容易导致多个回复报文交织在一起，客户端无法解析
 	// 所以需要确保响应完整性
@@ -104,13 +103,13 @@ func (server *Server) serveMessage(msg qrpc.Phone) {
 }
 
 type request struct {
-	h            *qrpc.Header
+	h            *Header
 	argv, replyv reflect.Value
 }
 
 // 解析请求头
-func (server *Server) parseRequestHeader(msg qrpc.Phone) (*qrpc.Header, error) {
-	var h qrpc.Header
+func (server *Server) parseRequestHeader(msg Phone) (*Header, error) {
+	var h Header
 	if err := msg.ReadHeader(&h); err != nil {
 		if err != io.EOF && err != io.ErrUnexpectedEOF {
 			log.Println("rpc server: read header error:", err)
@@ -121,7 +120,7 @@ func (server *Server) parseRequestHeader(msg qrpc.Phone) (*qrpc.Header, error) {
 }
 
 // 1. 解析请求数据
-func (server *Server) parseRequest(msg qrpc.Phone) (*request, error) {
+func (server *Server) parseRequest(msg Phone) (*request, error) {
 	h, err := server.parseRequestHeader(msg)
 	if err != nil {
 		return nil, err
@@ -136,7 +135,7 @@ func (server *Server) parseRequest(msg qrpc.Phone) (*request, error) {
 }
 
 // 2. 逻辑处理请求
-func (server *Server) handleRequest(msg qrpc.Phone, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
+func (server *Server) handleRequest(msg Phone, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
 	// TODO: 需要调用已注册的rpc方法获取 replyv
 	defer wg.Done()
 	log.Println("req: ", req.h, req.argv.Elem())
@@ -145,7 +144,7 @@ func (server *Server) handleRequest(msg qrpc.Phone, req *request, sending *sync.
 }
 
 // 3. 返回响应数据
-func (server *Server) sendResponse(msg qrpc.Phone, h *qrpc.Header, body interface{}, sending *sync.Mutex) {
+func (server *Server) sendResponse(msg Phone, h *Header, body interface{}, sending *sync.Mutex) {
 	// 加锁目的
 	// 防止一个goroutine在写buffer的时候，另一个在尝试flush
 	sending.Lock()
